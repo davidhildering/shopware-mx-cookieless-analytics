@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.0.1 (2026-10-05)
+
+- Server-side `order_completed` commerce events: sent when a payment
+  transaction enters "paid" (redirect payments like iDEAL captured), exactly
+  once per order, with total, currency, order id, items and discount code.
+  Revenue is normalized to EUR by the MetriXs API.
+- Tracker cache-bust version follows TRACKER_VERSION (1.2.0).
+- Body-shape fix for the /api/event ingest schema (n/u/d/p).
+
 ## 1.0.0 (2026-10-05)
 
 - Initial release
