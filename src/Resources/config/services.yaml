@@ -6,5 +6,6 @@ services:
 
     Mxcoan\Service\ConnectService: ~
     Mxcoan\Subscriber\SystemConfigChangedSubscriber: ~
+    Mxcoan\Subscriber\OrderPaidSubscriber: ~
     Mxcoan\Controller\ChallengeController:
         public: true
