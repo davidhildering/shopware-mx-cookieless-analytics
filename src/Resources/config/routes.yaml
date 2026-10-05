@@ -1,0 +1,3 @@
+mxcoan_controllers:
+    resource: '../../Controller/**/*Controller.php'
+    type: attribute
