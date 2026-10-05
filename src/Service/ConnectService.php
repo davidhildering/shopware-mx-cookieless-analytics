@@ -53,9 +53,11 @@ class ConnectService
 
     /**
      * Full handshake. Returns true when the site is verified and the
-     * connection state was persisted.
+     * connection state was persisted. $force skips the 5-minute throttle
+     * (used by the one-click connect callback, where the click itself is
+     * the explicit opt-in and no earlier attempt happened).
      */
-    public function connect(): bool
+    public function connect(bool $force = false): bool
     {
         if (self::$connecting) {
             return false;
@@ -63,13 +65,13 @@ class ConnectService
         self::$connecting = true;
 
         try {
-            return $this->doConnect();
+            return $this->doConnect($force);
         } finally {
             self::$connecting = false;
         }
     }
 
-    private function doConnect(): bool
+    private function doConnect(bool $force = false): bool
     {
         $apiKey = $this->systemConfig->getString(self::CONFIG_PREFIX . 'apiKey');
         $apiBase = $this->systemConfig->getString(self::CONFIG_PREFIX . 'apiBase');
@@ -79,11 +81,15 @@ class ConnectService
         }
 
         // Throttle: one attempt per 5 minutes (config saves fire repeatedly).
-        $lastAttempt = $this->systemConfig->getInt(self::CONFIG_PREFIX . 'lastConnectAttempt');
-        if (time() - $lastAttempt < self::CONNECT_THROTTLE_SECONDS) {
-            return false;
+        // The one-click callback bypasses it ($force) — the click is the
+        // explicit opt-in, same semantics as the WordPress module.
+        if (!$force) {
+            $lastAttempt = $this->systemConfig->getInt(self::CONFIG_PREFIX . 'lastConnectAttempt');
+            if (time() - $lastAttempt < self::CONNECT_THROTTLE_SECONDS) {
+                return false;
+            }
+            $this->systemConfig->set(self::CONFIG_PREFIX . 'lastConnectAttempt', time());
         }
-        $this->systemConfig->set(self::CONFIG_PREFIX . 'lastConnectAttempt', time());
 
         $bearer = ['Authorization' => 'Bearer ' . $apiKey];
 

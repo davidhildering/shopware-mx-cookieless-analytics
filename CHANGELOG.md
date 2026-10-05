@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 (2026-10-05)
+
+- One-click connect: a "Connect with MetriXs" button on the plugin config
+  page opens the MetriXs dashboard, where you create (or open) your account;
+  the shop is added, connected, verified and tracking is enabled
+  automatically. No API key copying. The manual API-key flow works unchanged.
+
 ## 1.0.1 (2026-10-05)
 
 - Server-side `order_completed` commerce events: sent when a payment

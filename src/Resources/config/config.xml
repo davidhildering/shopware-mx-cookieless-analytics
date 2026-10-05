@@ -25,5 +25,10 @@
             <defaultValue>false</defaultValue>
             <helpText>Off by default. Nothing is loaded from or sent to MetriXs until this is enabled AND the site is connected. Connecting (saving a valid API key) turns this on automatically.</helpText>
         </input-field>
+
+        <component name="mxcoan-connect-button">
+            <name>connectButton</name>
+            <label>Or connect without an API key</label>
+        </component>
     </card>
 </config>

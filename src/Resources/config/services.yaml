@@ -9,3 +9,5 @@ services:
     Mxcoan\Subscriber\OrderPaidSubscriber: ~
     Mxcoan\Controller\ChallengeController:
         public: true
+    Mxcoan\Controller\ConnectController:
+        public: true
