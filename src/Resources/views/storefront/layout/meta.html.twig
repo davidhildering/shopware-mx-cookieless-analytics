@@ -1,0 +1,21 @@
+{% sw_extends '@Storefront/storefront/layout/meta.html.twig' %}
+
+{# MX Cookieless Analytics — tracker injection. Opt-in double gate: nothing
+   is loaded unless trackingEnabled is on AND the connect handshake verified
+   the site (connected). Mirrors the WordPress/Grav/Craft/PrestaShop plugins.
+   data-domain comes from the domain MetriXs verified during the handshake
+   (stored config), never from the request Host header (cache poisoning).
+   Plugin config keys live under the technical-name domain: Mxcoan.config.* #}
+
+{% block layout_head_javascript_hmr_mode %}
+    {{ parent() }}
+
+    {% if config('Mxcoan.config.trackingEnabled')
+        and config('Mxcoan.config.connected')
+        and config('Mxcoan.config.connectedDomain')
+        and config('Mxcoan.config.apiBase') %}
+        <script defer
+                data-domain="{{ config('Mxcoan.config.connectedDomain') }}"
+                src="{{ config('Mxcoan.config.apiBase') }}/tracker.js?v=1.0.0"></script>
+    {% endif %}
+{% endblock %}

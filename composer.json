@@ -1,0 +1,32 @@
+{
+  "name": "metrixs/mxcoan",
+  "description": "European privacy-first, cookieless analytics for Shopware 6. No cookies, GDPR-native, EU data.",
+  "type": "shopware-platform-plugin",
+  "license": "MIT",
+  "version": "1.0.0",
+  "authors": [
+    {
+      "name": "MetriXs",
+      "homepage": "https://metrixs.eu"
+    }
+  ],
+  "require": {
+    "shopware/core": "~6.5.8 || ~6.6.0"
+  },
+  "extra": {
+    "shopware-plugin-class": "Mxcoan\\Mxcoan",
+    "label": {
+      "en-GB": "MX Cookieless Analytics",
+      "de-DE": "MX Cookieless Analytics"
+    },
+    "description": {
+      "en-GB": "European privacy-first, cookieless analytics. GDPR-native, EU-hosted, no cookie banner needed for basic stats.",
+      "de-DE": "Europäische, datenschutzfreundliche Analytik ohne Cookies. DSGVO-konform, EU-gehostet, kein Cookie-Banner nötig."
+    }
+  },
+  "autoload": {
+    "psr-4": {
+      "Mxcoan\\": "src/"
+    }
+  }
+}

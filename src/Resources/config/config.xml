@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="https://raw.githubusercontent.com/shopware/shopware/trunk/src/Core/System/SystemConfig/Schema/config.xsd">
+    <card>
+        <title>MX Cookieless Analytics</title>
+
+        <input-field type="text">
+            <name>apiBase</name>
+            <label>MetriXs API URL</label>
+            <defaultValue>https://api.metrixs.eu</defaultValue>
+            <required>true</required>
+            <helpText>Only change this if you were given a different MetriXs URL.</helpText>
+        </input-field>
+
+        <input-field type="text">
+            <name>apiKey</name>
+            <label>Site API key</label>
+            <required>true</required>
+            <helpText>Create one in the MetriXs dashboard: Settings → Sites → API keys.</helpText>
+        </input-field>
+
+        <input-field type="bool">
+            <name>trackingEnabled</name>
+            <label>Enable tracking</label>
+            <defaultValue>false</defaultValue>
+            <helpText>Off by default. Nothing is loaded from or sent to MetriXs until this is enabled AND the site is connected. Connecting (saving a valid API key) turns this on automatically.</helpText>
+        </input-field>
+    </card>
+</config>
