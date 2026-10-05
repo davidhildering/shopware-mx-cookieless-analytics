@@ -142,28 +142,4 @@ class ConnectService
 
         return true;
     }
-
-    /**
-     * Best-effort uninstall notice. Failures are ignored: the key may already
-     * be revoked, and MetriXs marks the site unverified on its side.
-     */
-    public function notifyUninstall(): void
-    {
-        $apiKey = $this->systemConfig->getString(self::CONFIG_PREFIX . 'apiKey');
-        $apiBase = $this->systemConfig->getString(self::CONFIG_PREFIX . 'apiBase');
-
-        if ($apiKey === '' || $apiBase === '') {
-            return;
-        }
-
-        try {
-            HttpClient::create(['timeout' => 3])->request(
-                'POST',
-                $apiBase . '/api/integrations/shopware/uninstall',
-                ['headers' => ['Authorization' => 'Bearer ' . $apiKey]]
-            );
-        } catch (\Throwable $e) {
-            // Intentionally ignored.
-        }
-    }
 }
