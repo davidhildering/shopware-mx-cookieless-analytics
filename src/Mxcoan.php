@@ -9,9 +9,6 @@ use Symfony\Component\HttpClient\HttpClient;
 
 class Mxcoan extends Plugin
 {
-    /** Cache-bust version appended to the tracker.js URL. Bump at release. */
-    public const TRACKER_CACHE_VERSION = '1.0.0';
-
     public const CONFIG_PREFIX = 'Mxcoan.config.';
 
     public function uninstall(UninstallContext $uninstallContext): void
