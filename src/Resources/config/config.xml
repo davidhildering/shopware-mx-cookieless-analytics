@@ -7,7 +7,7 @@
         <input-field type="text">
             <name>apiBase</name>
             <label>MetriXs API URL</label>
-            <defaultValue>https://api.metrixs.eu</defaultValue>
+            <defaultValue>https://app.metrixs.eu</defaultValue>
             <required>true</required>
             <helpText>Only change this if you were given a different MetriXs URL.</helpText>
         </input-field>
