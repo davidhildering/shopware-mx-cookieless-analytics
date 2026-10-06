@@ -56,6 +56,16 @@ class Mxcoan extends Plugin
                 $apiBase . '/api/integrations/shopware/uninstall',
                 ['headers' => ['Authorization' => 'Bearer ' . $apiKey]]
             )->getStatusCode();
+
+            // Credential hygiene: Shopware wipes the config.xml-DECLARED keys
+            // on uninstall but leaves everything this plugin wrote at runtime
+            // (apiKey, connected, connectedDomain, challengeToken, …) in
+            // system_config. Delete the whole namespace so an uninstalled
+            // plugin does not keep an API key in the shop's database.
+            $conn->executeStatement(
+                'DELETE FROM system_config WHERE configuration_key LIKE ?',
+                [self::CONFIG_PREFIX . '%']
+            );
         } catch (\Throwable $e) {
             // Intentionally ignored — uninstall must always succeed locally.
         }

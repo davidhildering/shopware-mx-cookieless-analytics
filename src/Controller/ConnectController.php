@@ -36,9 +36,18 @@ use Symfony\Component\Routing\Attribute\Route;
  *   server proves itself with the { code, state } pair); verification of the
  *   exchanged key requires domain control, so a hijacked callback can never
  *   connect a foreign site
+ *
+ * Route-scope contract (live-verified on 6.6.10.6, do not "simplify"):
+ * the start action is called by the administration SPA through the Admin API
+ * (`/api/...`). Shopware filters by route scope (a storefront-scoped route
+ * under /api is a 404), and BOTH `api` and `administration` resolve for
+ * /api/_action/... — `api` is what core uses for its own `_action` routes,
+ * `administration` is what the SPA session expects. Declaring both keeps the
+ * button working regardless of which area serves the request.
  */
 class ConnectController extends StorefrontController
 {
+    public const CONFIG_PREFIX = 'Mxcoan.config.';
     public const STATE_TTL = 900; // 15 minutes, like the WP module
 
     private SystemConfigService $systemConfig;
@@ -58,19 +67,25 @@ class ConnectController extends StorefrontController
     /**
      * Step 1 (admin-initiated): store the single-use state and return the
      * dashboard connect URL. Admin API scope: authenticated by the admin
-     * bearer token (the config component sends it).
+     * bearer token (the config component sends it) and ACL-guarded with the
+     * same privilege core requires to save this very config
+     * (`system_config:update`), so a restricted admin role cannot start a
+     * connect on its own.
      */
     #[Route(
         path: '/api/_action/mxcoan/connect/start',
         name: 'api.action.mxcoan.connect.start',
         methods: ['POST'],
-        defaults: ['_routeScope' => ['administration']]
+        defaults: [
+            '_routeScope' => ['api', 'administration'],
+            '_acl' => ['system_config:update'],
+        ]
     )]
     public function start(Request $request): JsonResponse
     {
-        $apiBase = rtrim($this->systemConfig->getString('Mxcoan.config.apiBase'), '/');
-        if ($apiBase === '') {
-            return new JsonResponse(['error' => 'api_base_missing'], 400);
+        $apiBase = $this->apiBase();
+        if ($apiBase === null) {
+            return new JsonResponse(['error' => 'api_base_invalid'], 400);
         }
 
         $domainUrl = $this->firstSalesChannelDomainUrl($request);
@@ -93,8 +108,8 @@ class ConnectController extends StorefrontController
             . '/mxcoan/connect';
 
         $state = bin2hex(random_bytes(16));
-        $this->systemConfig->set('Mxcoan.config.connectState', $state);
-        $this->systemConfig->set('Mxcoan.config.connectStateExpires', time() + self::STATE_TTL);
+        $this->systemConfig->set(self::CONFIG_PREFIX . 'connectState', $state);
+        $this->systemConfig->set(self::CONFIG_PREFIX . 'connectStateExpires', time() + self::STATE_TTL);
 
         $url = $apiBase . '/connect/shopware?' . http_build_query([
             'state' => $state,
@@ -107,6 +122,10 @@ class ConnectController extends StorefrontController
 
     /**
      * Step 4 (storefront callback from the dashboard redirect).
+     *
+     * Storefront scope on purpose: the callback must be reachable on the
+     * shop's own domain (that is what the `back` host check in the dashboard
+     * allows), and it has to run before the key is ever used.
      */
     #[Route(
         path: '/mxcoan/connect',
@@ -120,10 +139,10 @@ class ConnectController extends StorefrontController
         $state = (string) preg_replace('/[^A-Za-z0-9]/', '', (string) $request->query->get('state', ''));
 
         // Single-use: clear BEFORE any use.
-        $storedState = $this->systemConfig->getString('Mxcoan.config.connectState');
-        $expires = $this->systemConfig->getInt('Mxcoan.config.connectStateExpires');
-        $this->systemConfig->set('Mxcoan.config.connectState', '');
-        $this->systemConfig->set('Mxcoan.config.connectStateExpires', 0);
+        $storedState = $this->systemConfig->getString(self::CONFIG_PREFIX . 'connectState');
+        $expires = $this->systemConfig->getInt(self::CONFIG_PREFIX . 'connectStateExpires');
+        $this->systemConfig->set(self::CONFIG_PREFIX . 'connectState', '');
+        $this->systemConfig->set(self::CONFIG_PREFIX . 'connectStateExpires', 0);
 
         if ($code === '' || $storedState === ''
             || !hash_equals($storedState, $state)
@@ -131,8 +150,8 @@ class ConnectController extends StorefrontController
             return $this->backToAdmin();
         }
 
-        $apiBase = rtrim($this->systemConfig->getString('Mxcoan.config.apiBase'), '/');
-        if ($apiBase === '') {
+        $apiBase = $this->apiBase();
+        if ($apiBase === null) {
             return $this->backToAdmin();
         }
 
@@ -156,9 +175,23 @@ class ConnectController extends StorefrontController
 
         // Store the key and turn tracking ON: the connect click is the
         // explicit opt-in (same semantics as the WordPress module).
-        $this->systemConfig->set('Mxcoan.config.apiKey', $apiKey);
-        $this->systemConfig->set('Mxcoan.config.trackingEnabled', true);
-        $this->systemConfig->set('Mxcoan.config.lastConnectAttempt', 0);
+        //
+        // mute(): every set() below dispatches SystemConfigChangedEvent, and
+        // ConnectService reacts to config saves. Without the mute the
+        // handshake would run once per write (once per key, in the SAME
+        // request) — three handshakes and three cache flushes for one click.
+        // One explicit, unthrottled handshake is all we need.
+        $this->connectService->mute();
+
+        // A fresh key means a possibly different MetriXs site: drop the old
+        // verification state instead of letting the tracker keep injecting a
+        // data-domain that belongs to the previous connection. The handshake
+        // below re-establishes both from the site the key belongs to.
+        $this->systemConfig->delete(self::CONFIG_PREFIX . 'connected');
+        $this->systemConfig->delete(self::CONFIG_PREFIX . 'connectedDomain');
+        $this->systemConfig->set(self::CONFIG_PREFIX . 'apiKey', $apiKey);
+        $this->systemConfig->set(self::CONFIG_PREFIX . 'trackingEnabled', true);
+        $this->systemConfig->set(self::CONFIG_PREFIX . 'lastConnectAttempt', 0);
 
         // Full handshake, unthrottled: challenge → serve → verify.
         $this->connectService->connect(true);
@@ -170,6 +203,16 @@ class ConnectController extends StorefrontController
     private function backToAdmin(): RedirectResponse
     {
         return new RedirectResponse('/admin#/sw/extension/config/Mxcoan');
+    }
+
+    /**
+     * Validated absolute origin of the MetriXs API (see
+     * ConnectService::normalizeApiBase — shared with the handshake so both
+     * sides interpret the settings field the same way).
+     */
+    private function apiBase(): ?string
+    {
+        return ConnectService::normalizeApiBase($this->systemConfig->getString(self::CONFIG_PREFIX . 'apiBase'));
     }
 
     /** Best sales channel domain URL: the one matching the admin request's

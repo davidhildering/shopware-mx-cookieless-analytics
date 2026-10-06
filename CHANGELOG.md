@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.2.0 (2026-10-06)
+
+- Revenue is visible out of the box: connecting now turns the MetriXs
+  commerce panel on for your site (same behaviour as the WordPress plugin).
+  Before this version, orders were collected but the dashboard kept the
+  revenue panel hidden until you enabled commerce by hand.
+- Privacy: order events no longer carry the order's deep link code. The
+  recorded page is `/checkout/finish` without a token, so nobody reading your
+  analytics can use a stored URL to open a customer's order.
+- Reliable revenue: an unreachable MetriXs API no longer drops that order for
+  good. The plugin marks an order as reported only after a successful send,
+  so the next "paid" transition reports it.
+- One click on "Connect with MetriXs" now performs one connection attempt
+  instead of up to three, and re-verifying an unchanged connection no longer
+  flushes your shop's page cache.
+- Settings page and connect button are now translated into German.
+- The connect start endpoint requires the "change plugin settings" permission;
+  a restricted admin role gets a clear message instead of a generic error.
+- Faster payment return: the order event call times out in 5 seconds instead
+  of 15, so a slow MetriXs API cannot add long pauses to the checkout return.
+- Uninstalling removes the plugin's API key and connection state from your
+  shop's database.
+
 ## 1.1.0 (2026-10-05)
 
 - One-click connect: a "Connect with MetriXs" button on the plugin config

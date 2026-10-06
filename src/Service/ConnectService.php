@@ -25,12 +25,31 @@ class ConnectService
     public const CONFIG_PREFIX = 'Mxcoan.config.';
     private const CONNECT_THROTTLE_SECONDS = 300;
 
+    /**
+     * The ONLY config keys that trigger a handshake.
+     *
+     * SystemConfigChangedEvent fires per key, on EVERY write — including the
+     * ones this service makes itself (challengeToken, lastConnectAttempt,
+     * connected, connectedDomain) and the ones the one-click callback makes
+     * (connectState, connectStateExpires, apiKey, trackingEnabled). Reacting
+     * to the whole prefix meant one "Connect" click ran the full handshake
+     * three times: six API calls and up to three full cache flushes inside a
+     * single request, each verify fetching this very shop while its own
+     * request was still in flight. Key changes that are pure bookkeeping must
+     * never re-trigger.
+     */
+    private const HANDSHAKE_KEYS = ['apiKey', 'apiBase'];
+
     private SystemConfigService $systemConfig;
     private CacheClearer $cacheClearer;
     private HttpClientInterface $client;
 
     /** Re-entrancy guard: our own config writes re-fire the save event. */
     private static bool $connecting = false;
+
+    /** Set by the one-click callback: it writes several keys at once and runs
+     *  exactly one explicit, unthrottled handshake afterwards. */
+    private bool $muted = false;
 
     public function __construct(
         SystemConfigService $systemConfig,
@@ -41,10 +60,45 @@ class ConnectService
         $this->client = HttpClient::create(['timeout' => 5]);
     }
 
+    /** Suppress event-driven handshakes for the rest of this request. */
+    public function mute(): void
+    {
+        $this->muted = true;
+    }
+
+    /**
+     * Validate + normalize the configured API origin (no path, no query, no
+     * userinfo — the settings field only accepts an origin). Returns null when
+     * it is empty or not a usable http(s) URL.
+     *
+     * Without this guard a missing scheme turns "/api/..." into a relative URI
+     * and the HttpClient throws, which the handshake swallows → a silent,
+     * unexplainable "not connected". Kept as a dependency-free static so
+     * tests/smoke.php can exercise it without a Shopware container.
+     */
+    public static function normalizeApiBase(string $raw): ?string
+    {
+        $apiBase = rtrim(trim($raw), '/');
+        if ($apiBase === '' || !preg_match('~^https?://[^\s/?#@]+$~i', $apiBase)) {
+            return null;
+        }
+
+        return strtolower($apiBase);
+    }
+
     public function onConfigChanged(SystemConfigChangedEvent $event): void
     {
-        // SystemConfigChangedEvent fires PER KEY (e.g. "MetrixsMxcoan.settings.apiKey").
-        if (!str_starts_with($event->getKey(), self::CONFIG_PREFIX)) {
+        if ($this->muted) {
+            return;
+        }
+
+        // SystemConfigChangedEvent fires PER KEY, e.g. "Mxcoan.config.apiKey".
+        $key = $event->getKey();
+        if (!str_starts_with($key, self::CONFIG_PREFIX)) {
+            return;
+        }
+
+        if (!in_array(substr($key, strlen(self::CONFIG_PREFIX)), self::HANDSHAKE_KEYS, true)) {
             return;
         }
 
@@ -74,7 +128,7 @@ class ConnectService
     private function doConnect(bool $force = false): bool
     {
         $apiKey = $this->systemConfig->getString(self::CONFIG_PREFIX . 'apiKey');
-        $apiBase = $this->systemConfig->getString(self::CONFIG_PREFIX . 'apiBase');
+        $apiBase = self::normalizeApiBase($this->systemConfig->getString(self::CONFIG_PREFIX . 'apiBase')) ?? '';
 
         if ($apiKey === '' || $apiBase === '') {
             return false;
@@ -115,12 +169,21 @@ class ConnectService
         $this->systemConfig->set(self::CONFIG_PREFIX . 'challengeToken', $challenge);
 
         // Step 3: let the API fetch + verify it.
+        //
+        // enableCommerce mirrors the WordPress plugin: a connected Shopware
+        // shop always sends server-side order_completed (OrderPaidSubscriber),
+        // so the site's commerce flag has to come on with the connection.
+        // Without it the dashboard hides the whole Commerce panel and the
+        // merchant's revenue silently stays invisible.
         $domain = null;
         try {
             $resp = $this->client->request(
                 'POST',
                 $apiBase . '/api/integrations/shopware/verify',
-                ['headers' => $bearer]
+                [
+                    'headers' => $bearer,
+                    'json' => ['enableCommerce' => true],
+                ]
             );
             if ($resp->getStatusCode() === 200) {
                 $body = $resp->toArray(false);
@@ -140,12 +203,49 @@ class ConnectService
             return false;
         }
 
-        // Step 4: persist connection state + flush cached pages so the
-        // injected <script> appears (head output is baked into page cache).
+        // Step 4: persist connection state. Flushing the HTTP cache is only
+        // needed when the injected <script> actually changes (head output is
+        // baked into cached pages) — re-verifying the same connection must not
+        // invalidate a production shop's whole page cache for nothing.
+        $wasConnected = $this->systemConfig->getBool(self::CONFIG_PREFIX . 'connected');
+        $previousDomain = $this->systemConfig->getString(self::CONFIG_PREFIX . 'connectedDomain');
+
         $this->systemConfig->set(self::CONFIG_PREFIX . 'connected', true);
         $this->systemConfig->set(self::CONFIG_PREFIX . 'connectedDomain', $domain);
-        $this->cacheClearer->clearCache();
+
+        if (!$wasConnected || $previousDomain !== $domain) {
+            $this->flushPageCache();
+        }
 
         return true;
+    }
+
+    /**
+     * Drop the cached storefront pages so the injected <script> shows up
+     * (head output is baked into cached pages).
+     *
+     * Live-learned the hard way (6.6.10.6): `CacheClearer::clearCache()` does
+     * not exist — not in 6.5, not in 6.6. An undefined method there is an
+     * Error, thrown right after the connection state was written, so the first
+     * successful handshake in a shop blew up the admin config save with a 500
+     * while the shop was already marked connected. Real API, checked per
+     * version:
+     *  - 6.6.4+ : clearHttpCache() — only the storefront page cache
+     *  - 6.5.8 / 6.6.0: clear() only (no $clearHttp argument, no
+     *    clearHttpCache), which clears the cache adapters
+     *
+     * call_user_func on an [object, method] callable keeps this compatible
+     * without lying to the PHPStan run of the Shopware store review.
+     * And it must never break the handshake: a missed flush only means the
+     * tracker appears when the pages expire naturally.
+     */
+    private function flushPageCache(): void
+    {
+        try {
+            $method = method_exists($this->cacheClearer, 'clearHttpCache') ? 'clearHttpCache' : 'clear';
+            call_user_func([$this->cacheClearer, $method]);
+        } catch (\Throwable $e) {
+            // Best-effort: connection state is already correct.
+        }
     }
 }

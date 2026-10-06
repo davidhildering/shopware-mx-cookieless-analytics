@@ -3,7 +3,7 @@
   "description": "European privacy-first, cookieless analytics for Shopware 6 storefronts. GDPR-native, EU-hosted, opt-in tracker injection and automatic shop verification. No cookie banner needed.",
   "type": "shopware-platform-plugin",
   "license": "MIT",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "authors": [
     {
       "name": "MetriXs",
@@ -40,5 +40,11 @@
     "psr-4": {
       "Mxcoan\\": "src/"
     }
+  },
+  "scripts": {
+    "smoke": "php tests/smoke.php"
+  },
+  "scripts-descriptions": {
+    "smoke": "Dependency-free checks (regex patterns, apiBase validation, Shopware API names). Run before packaging: composer smoke"
   }
 }

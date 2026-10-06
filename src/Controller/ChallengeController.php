@@ -23,12 +23,22 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * The token is cleared by ConnectService once the handshake completes.
  *
- * Storefront scope, no HTTP cache: the route is NOT marked _httpCache, so
- * Shopware never caches it (fresh token on every fetch).
+ * Freshness is the whole security property of this endpoint: a stored
+ * response would let a later handshake read a PREVIOUS token. Shopware only
+ * HTTP-caches routes whose `_httpCache` default is true (verified on
+ * 6.6.10.6), so this route is never cached — but 6.7 introduced per-area
+ * caching policies, so the response also declares itself uncacheable. Cheap
+ * insurance, keep it.
  */
 class ChallengeController extends StorefrontController
 {
     public const CONFIG_PREFIX = 'Mxcoan.config.';
+
+    /** @var array<string,string> */
+    private const NO_STORE_HEADERS = [
+        'Cache-Control' => 'no-store, no-cache, private, max-age=0',
+        'Pragma' => 'no-cache',
+    ];
 
     private SystemConfigService $systemConfig;
 
@@ -46,10 +56,10 @@ class ChallengeController extends StorefrontController
     public function challenge(): JsonResponse
     {
         $challenge = $this->systemConfig->getString(self::CONFIG_PREFIX . 'challengeToken');
-        if ($challenge === '' || $challenge === null) {
-            return new JsonResponse(['error' => 'no_challenge'], 404);
+        if ($challenge === '') {
+            return new JsonResponse(['error' => 'no_challenge'], 404, self::NO_STORE_HEADERS);
         }
 
-        return new JsonResponse(['challenge' => $challenge]);
+        return new JsonResponse(['challenge' => $challenge], 200, self::NO_STORE_HEADERS);
     }
 }

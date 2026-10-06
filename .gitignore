@@ -1,2 +1,5 @@
 composer.lock
 /vendor/*.zip
+# Compiled admin/storefront assets: emitted by `shopware-cli extension build`
+# / `extension package` into the source tree, only belong inside the ZIP.
+/src/Resources/public/

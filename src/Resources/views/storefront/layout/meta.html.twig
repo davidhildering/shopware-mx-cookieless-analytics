@@ -10,8 +10,15 @@
 {% block layout_head_javascript_hmr_mode %}
     {{ parent() }}
 
-    {% if config('Mxcoan.config.trackingEnabled')
-        and config('Mxcoan.config.connected')
+    {# `is same as(true)` is the strict form, and it has to be the *test*
+       form: `x same as(true)` inside {% if %} is a parse error in Shopware's
+       twig ("Unexpected token 'name' of value 'same'") and answers 500 on
+       every storefront page — live-verified on 6.6.10.6. Strict on purpose:
+       both flags are real JSON booleans written by the plugin, and a loose
+       check would let the string "false" (easy to create with
+       bin/console system:config:set) keep an opt-in tracker switched on. #}
+    {% if config('Mxcoan.config.trackingEnabled') is same as(true)
+        and config('Mxcoan.config.connected') is same as(true)
         and config('Mxcoan.config.connectedDomain')
         and config('Mxcoan.config.apiBase') %}
         <script defer

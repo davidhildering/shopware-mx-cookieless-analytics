@@ -6,7 +6,15 @@ services:
 
     Mxcoan\Service\ConnectService: ~
     Mxcoan\Subscriber\SystemConfigChangedSubscriber: ~
-    Mxcoan\Subscriber\OrderPaidSubscriber: ~
+
+    # Entity repositories are wired explicitly: Shopware's autowiring
+    # convention resolves `EntityRepositoryInterface $orderRepository` by
+    # argument name, but the explicit service id (`<entity>.repository`) is
+    # what the platform docs use and it cannot break on a name/type change.
+    Mxcoan\Subscriber\OrderPaidSubscriber:
+        arguments:
+            $orderRepository: '@order.repository'
+
     Mxcoan\Controller\ChallengeController:
         public: true
     Mxcoan\Controller\ConnectController:

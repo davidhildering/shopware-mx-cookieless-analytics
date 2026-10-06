@@ -7,28 +7,35 @@
         <input-field type="text">
             <name>apiBase</name>
             <label>MetriXs API URL</label>
+            <label lang="de-DE">MetriXs-API-URL</label>
             <defaultValue>https://app.metrixs.eu</defaultValue>
             <required>true</required>
             <helpText>Only change this if you were given a different MetriXs URL.</helpText>
+            <helpText lang="de-DE">Ändern Sie das nur, wenn Sie eine andere MetriXs-URL erhalten haben.</helpText>
         </input-field>
 
         <input-field type="text">
             <name>apiKey</name>
             <label>Site API key</label>
+            <label lang="de-DE">Website-API-Key</label>
             <required>true</required>
             <helpText>Create one in the MetriXs dashboard: Settings → Sites → API keys.</helpText>
+            <helpText lang="de-DE">Erstellen Sie einen im MetriXs-Dashboard: Einstellungen → Websites → API-Keys.</helpText>
         </input-field>
 
         <input-field type="bool">
             <name>trackingEnabled</name>
             <label>Enable tracking</label>
+            <label lang="de-DE">Tracking aktivieren</label>
             <defaultValue>false</defaultValue>
-            <helpText>Off by default. Nothing is loaded from or sent to MetriXs until this is enabled AND the site is connected. Connecting (saving a valid API key) turns this on automatically.</helpText>
+            <helpText>Off by default. Nothing is loaded from or sent to MetriXs until this is enabled AND the site is connected. Connecting (saving a valid API key, or the connect button below) turns this on automatically.</helpText>
+            <helpText lang="de-DE">Standardmäßig aus. Es wird nichts von MetriXs geladen oder dorthin gesendet, solange dies nicht aktiviert ist UND die Website verbunden ist. Beim Verbinden (gültiger API-Key speichern oder die Schaltfläche unten) wird dies automatisch aktiviert.</helpText>
         </input-field>
 
         <component name="mxcoan-connect-button">
             <name>connectButton</name>
             <label>Or connect without an API key</label>
+            <label lang="de-DE">Oder ohne API-Key verbinden</label>
         </component>
     </card>
 </config>

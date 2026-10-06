@@ -1,1 +1,1 @@
-import './mxcoan-connect-button';
+import './mxcoan-connect-button'
