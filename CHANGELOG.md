@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 (2026-11-20)
+
+- Shopware 6.7 compatibility: the plugin now declares `shopware/core ~6.7.0`
+  and installs on 6.7 (verified live on 6.7.16.1: install/activate, storefront
+  tracker injection, challenge endpoint, admin connect, order-paid event).
+  Shopware refused to install 1.2.0 on 6.7 with the previous constraint.
+
 ## 1.2.0 (2026-10-06)
 
 - Revenue is visible out of the box: connecting now turns the MetriXs
